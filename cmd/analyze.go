@@ -19,16 +19,19 @@ type FileDetails struct {
 	Funcs    []string
 }
 
+// parseFile parses the Go file at the given path and returns the corresponding AST node.
 func parseFile(filePath string) (*ast.File, error) {
 	fset := token.NewFileSet()
 	return parser.ParseFile(fset, filePath, nil, parser.ParseComments)
 }
 
+// handleImportSpec handles an import spec AST node.
 func handleImportSpec(x *ast.ImportSpec, details *FileDetails) {
 	importPath := strings.Trim(x.Path.Value, "\"")
 	details.Imports = append(details.Imports, importPath)
 }
 
+// handleTypeSpec handles a type spec AST node.
 func handleTypeSpec(x *ast.TypeSpec, details *FileDetails) {
 	switch t := x.Type.(type) {
 	case *ast.StructType:
@@ -39,6 +42,7 @@ func handleTypeSpec(x *ast.TypeSpec, details *FileDetails) {
 	}
 }
 
+// handleFuncDecl handles a function declaration AST node.
 func handleFuncDecl(x *ast.FuncDecl, details *FileDetails) {
 	funcSig := fmt.Sprintf("%s(", x.Name.Name)
 	if x.Type.Params != nil {
@@ -71,6 +75,7 @@ func handleFuncDecl(x *ast.FuncDecl, details *FileDetails) {
 	details.Funcs = append(details.Funcs, funcSig)
 }
 
+// inspectFile inspects the AST of a Go file and returns a FileDetails struct.
 func inspectFile(filePath string, node *ast.File) *FileDetails {
 	details := &FileDetails{
 		FilePath: filePath,
