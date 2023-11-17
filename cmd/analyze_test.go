@@ -113,6 +113,59 @@ func TestHandleImportSpec(t *testing.T) {
 	}
 }
 
+func TestHandleInterfaceSpec(t *testing.T) {
+	// Define a table of test cases
+	testCases := []struct {
+		name  string
+		input *ast.TypeSpec       // The input to handleInterfaceSpec
+		want  map[string][]string // The expected output from handleInterfaceSpec
+	}{
+		{
+			name: "Test with a valid interface type",
+			input: &ast.TypeSpec{
+				Name: ast.NewIdent("MyInterface"),
+				Type: &ast.InterfaceType{
+					Methods: &ast.FieldList{
+						List: []*ast.Field{
+							{
+								Names: []*ast.Ident{ast.NewIdent("Method1")},
+								Type:  ast.NewIdent("int"),
+							},
+							{
+								Names: []*ast.Ident{ast.NewIdent("Method2")},
+								Type:  ast.NewIdent("string"),
+							},
+						},
+					},
+				},
+			},
+			want: map[string][]string{
+				"MyInterface": {"Method1 int", "Method2 string"},
+			},
+		},
+		// Add more test cases as needed...
+	}
+
+	// Run each test case
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			// Create a new FileDetails struct for each test
+			details := &FileDetails{
+				FilePath:   "test_files/testfile.go",
+				Interfaces: make(map[string][]string),
+			}
+
+			// Call the function with the test case input
+			handleInterfaceSpec(testCase.input, details)
+
+			// Check that the Interfaces field in the details struct matches what we expect
+			if !reflect.DeepEqual(details.Interfaces, testCase.want) {
+				t.Errorf("Interfaces = %v, want %v", details.Interfaces, testCase.want)
+			}
+		})
+	}
+}
+
 func TestHandleTypeSpec(t *testing.T) {
 	// Define a table of test cases
 	testCases := []struct {

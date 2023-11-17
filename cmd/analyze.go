@@ -13,10 +13,11 @@ import (
 )
 
 type FileDetails struct {
-	FilePath string
-	Imports  []string
-	Structs  map[string][]string
-	Funcs    []string
+	FilePath   string
+	Imports    []string
+	Structs    map[string][]string
+	Interfaces map[string][]string
+	Funcs      []string
 }
 
 // parseFile parses the Go file at the given path and returns the corresponding AST node.
@@ -29,6 +30,21 @@ func parseFile(filePath string) (*ast.File, error) {
 func handleImportSpec(x *ast.ImportSpec, details *FileDetails) {
 	importPath := strings.Trim(x.Path.Value, "\"")
 	details.Imports = append(details.Imports, importPath)
+}
+
+// handleInterfaceSpec handles an interface spec AST node.
+func handleInterfaceSpec(x *ast.TypeSpec, details *FileDetails) {
+	switch t := x.Type.(type) {
+	case *ast.InterfaceType:
+		// Add an entry for the interface to the Interfaces field
+		details.Interfaces[x.Name.Name] = []string{}
+
+		// Then add each method to the entry
+		for _, f := range t.Methods.List {
+			method := fmt.Sprintf("%s %s", f.Names[0].Name, types.ExprString(f.Type))
+			details.Interfaces[x.Name.Name] = append(details.Interfaces[x.Name.Name], method)
+		}
+	}
 }
 
 // handleTypeSpec handles a type spec AST node.
@@ -93,7 +109,11 @@ func inspectFile(filePath string, node *ast.File) *FileDetails {
 		case *ast.ImportSpec:
 			handleImportSpec(x, details)
 		case *ast.TypeSpec:
-			handleTypeSpec(x, details)
+			if _, ok := x.Type.(*ast.InterfaceType); ok {
+				handleInterfaceSpec(x, details)
+			} else {
+				handleTypeSpec(x, details)
+			}
 		case *ast.FuncDecl:
 			handleFuncDecl(x, details)
 		}
