@@ -32,14 +32,10 @@ type dependency struct {
 	Indirect bool
 }
 
-// Update detectRun function
-func detectRun(cmd *cobra.Command, args []string) {
-	path := args[0]
-
+func detectGoProject(path string) (string, []dependency, error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		fmt.Printf("Error accessing path '%s': %v\n", path, err)
-		return
+		return "", nil, fmt.Errorf("error accessing path '%s': %v", path, err)
 	}
 
 	if info.Mode().IsRegular() {
@@ -51,11 +47,9 @@ func detectRun(cmd *cobra.Command, args []string) {
 		if _, err := os.Stat(goModPath); err == nil {
 			modulePath, dependencies, err := readGoModFile(goModPath)
 			if err != nil {
-				fmt.Printf("Error reading go.mod file: %v\n", err)
-				return
+				return "", nil, fmt.Errorf("error reading go.mod file: %v", err)
 			}
-			printProjectDetails(path, modulePath, dependencies)
-			return
+			return modulePath, dependencies, nil
 		}
 
 		parent := filepath.Dir(path)
@@ -65,36 +59,28 @@ func detectRun(cmd *cobra.Command, args []string) {
 		path = parent
 	}
 
-	fmt.Printf("'%s' is not a Go project. No go.mod file found.\n", args[0])
+	return "", nil, fmt.Errorf("'%s' is not a Go project. No go.mod file found", path)
 }
 
-// Update printProjectDetails function
 func printProjectDetails(projectPath, modulePath string, dependencies []dependency) {
-	// Create a new table
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 
-	// Set style to StyleColoredBlackOnGreenWhite
 	t.SetStyle(table.StyleColoredBlackOnGreenWhite)
 
-	// Print project information in the header
 	t.AppendHeader(table.Row{"  Project Name:", filepath.Base(projectPath)})
 	t.AppendHeader(table.Row{"  Module Path:", modulePath})
 	t.AppendHeader(table.Row{"  Type:", "Go project"})
 
-	// Set style back to StyleColoredGreenWhiteOnBlack for dependencies section
 	t.SetStyle(table.StyleColoredGreenWhiteOnBlack)
 
-	// Set column headers for dependencies
 	t.AppendSeparator()
 	t.AppendHeader(table.Row{"#", "Dependency", "Version", "Indirect"})
 
-	// Populate the table with data
 	for i, dep := range dependencies {
 		t.AppendRow([]interface{}{i + 1, dep.Name, dep.Version, dep.Indirect})
 	}
 
-	// Render the table
 	t.Render()
 }
 
@@ -132,4 +118,26 @@ func parseRequire(requires ...*modfile.Require) []dependency {
 		})
 	}
 	return dependencies
+}
+
+func isValidPath(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func detectRun(cmd *cobra.Command, args []string) {
+	path := args[0]
+
+	if !isValidPath(path) {
+		fmt.Printf("Invalid path: '%s'\n", path)
+		return
+	}
+
+	modulePath, dependencies, err := detectGoProject(path)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return
+	}
+
+	printProjectDetails(path, modulePath, dependencies)
 }
