@@ -123,13 +123,13 @@ func inspectFile(filePath string, node *ast.File) *FileDetails {
 	return details
 }
 
-var analyzeCmd = &cobra.Command{
-	Use:   "analyze",
-	Short: "Analyze a Go file",
-	Long:  `This command analyzes a Go file and prints out its details.`,
+var describeCmd = &cobra.Command{
+	Use:   "describe",
+	Short: "Describe a Go file",
+	Long:  `This command describes a Go file and prints out its details.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			fmt.Println("Usage: gosymex analyze <filepath>")
+			fmt.Println("Usage: gosymex describe <filepath>")
 			return
 		}
 
@@ -147,5 +147,5 @@ var analyzeCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(analyzeCmd)
+	rootCmd.AddCommand(describeCmd)
 }
