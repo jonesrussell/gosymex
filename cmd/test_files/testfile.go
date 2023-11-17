@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ func MyFunc(param1 int, param2 string) (result bool) {
 	return true
 }
 
-func main() {
+func mainTest() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello, world!")
 	})

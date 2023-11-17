@@ -35,6 +35,10 @@ func handleImportSpec(x *ast.ImportSpec, details *FileDetails) {
 func handleTypeSpec(x *ast.TypeSpec, details *FileDetails) {
 	switch t := x.Type.(type) {
 	case *ast.StructType:
+		// Add an entry for the struct to the Structs field
+		details.Structs[x.Name.Name] = []string{}
+
+		// Then add each field to the entry
 		for _, f := range t.Fields.List {
 			field := fmt.Sprintf("%s %s", f.Names[0].Name, types.ExprString(f.Type))
 			details.Structs[x.Name.Name] = append(details.Structs[x.Name.Name], field)
@@ -79,7 +83,9 @@ func handleFuncDecl(x *ast.FuncDecl, details *FileDetails) {
 func inspectFile(filePath string, node *ast.File) *FileDetails {
 	details := &FileDetails{
 		FilePath: filePath,
+		Imports:  []string{},
 		Structs:  make(map[string][]string),
+		Funcs:    []string{},
 	}
 
 	ast.Inspect(node, func(n ast.Node) bool {

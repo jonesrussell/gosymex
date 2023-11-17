@@ -7,23 +7,43 @@ import (
 )
 
 func TestParseFile(t *testing.T) {
-	// Define a test case
-	testCase := struct {
+	// Define a table of test cases
+	testCases := []struct {
 		name     string
-		filePath string
+		filePath string // The input to inspectFile
 		wantErr  bool
 	}{
-		name:     "Test with a valid file",
-		filePath: "test_files/testfile.go",
-		wantErr:  false,
+		{
+			name:     "Test with a valid file",
+			filePath: "test_files/testfile.go",
+			wantErr:  false,
+		},
+		{
+			name:     "Test with an invalid file path",
+			filePath: "test_files/non_existent_file.go",
+			wantErr:  true,
+		},
+		{
+			name:     "Test with a directory instead of a file",
+			filePath: "test_files/",
+			wantErr:  true,
+		},
+		{
+			name:     "Test with a file that isn't a Go file",
+			filePath: "test_files/testfile.txt",
+			wantErr:  true,
+		},
 	}
 
-	t.Run(testCase.name, func(t *testing.T) {
-		_, err := parseFile(testCase.filePath)
-		if (err != nil) != testCase.wantErr {
-			t.Errorf("parseFile() error = %v, wantErr %v", err, testCase.wantErr)
-		}
-	})
+	// Run each test case
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := parseFile(testCase.filePath)
+			if (err != nil) != testCase.wantErr {
+				t.Errorf("parseFile() error = %v, wantErr %v", err, testCase.wantErr)
+			}
+		})
+	}
 }
 
 func TestHandleImportSpec(t *testing.T) {
@@ -51,6 +71,24 @@ func TestHandleImportSpec(t *testing.T) {
 			},
 			want: []string{"net/http"},
 		},
+		{
+			name: "Test with a third valid import",
+			input: &ast.ImportSpec{
+				Path: &ast.BasicLit{
+					Value: "\"os\"",
+				},
+			},
+			want: []string{"os"},
+		},
+		{
+			name: "Test with an invalid import",
+			input: &ast.ImportSpec{
+				Path: &ast.BasicLit{
+					Value: "\"nonexistentpackage\"",
+				},
+			},
+			want: []string{"nonexistentpackage"},
+		},
 	}
 
 	// Run each test case
@@ -59,7 +97,9 @@ func TestHandleImportSpec(t *testing.T) {
 			// Create a new FileDetails struct for each test
 			details := &FileDetails{
 				FilePath: "test_files/testfile.go",
+				Imports:  []string{}, // Initialize as an empty slice
 				Structs:  make(map[string][]string),
+				Funcs:    []string{}, // Initialize as an empty slice
 			}
 
 			// Call the function with the test case input
@@ -102,6 +142,26 @@ func TestHandleTypeSpec(t *testing.T) {
 			want: map[string][]string{
 				"MyStruct": {"Field1 int", "Field2 string"},
 			},
+		},
+		{
+			name: "Test with a struct type with no fields",
+			input: &ast.TypeSpec{
+				Name: ast.NewIdent("EmptyStruct"),
+				Type: &ast.StructType{
+					Fields: &ast.FieldList{},
+				},
+			},
+			want: map[string][]string{
+				"EmptyStruct": {},
+			},
+		},
+		{
+			name: "Test with a non-struct type",
+			input: &ast.TypeSpec{
+				Name: ast.NewIdent("MyInt"),
+				Type: ast.NewIdent("int"),
+			},
+			want: map[string][]string{},
 		},
 	}
 
@@ -161,6 +221,45 @@ func TestHandleFuncDecl(t *testing.T) {
 			},
 			want: []string{"MyFunc(param1 int, param2 string) returns (result bool)"},
 		},
+		{
+			name: "Test with a function declaration with no parameters",
+			input: &ast.FuncDecl{
+				Name: ast.NewIdent("NoParamFunc"),
+				Type: &ast.FuncType{
+					Params: &ast.FieldList{},
+					Results: &ast.FieldList{
+						List: []*ast.Field{
+							{
+								Names: []*ast.Ident{ast.NewIdent("result")},
+								Type:  ast.NewIdent("bool"),
+							},
+						},
+					},
+				},
+			},
+			want: []string{"NoParamFunc() returns (result bool)"},
+		},
+		{
+			name: "Test with a function declaration with no return values",
+			input: &ast.FuncDecl{
+				Name: ast.NewIdent("NoReturnFunc"),
+				Type: &ast.FuncType{
+					Params: &ast.FieldList{
+						List: []*ast.Field{
+							{
+								Names: []*ast.Ident{ast.NewIdent("param1")},
+								Type:  ast.NewIdent("int"),
+							},
+							{
+								Names: []*ast.Ident{ast.NewIdent("param2")},
+								Type:  ast.NewIdent("string"),
+							},
+						},
+					},
+				},
+			},
+			want: []string{"NoReturnFunc(param1 int, param2 string)"},
+		},
 	}
 
 	// Run each test case
@@ -195,14 +294,46 @@ func TestInspectFile(t *testing.T) {
 			filePath: "test_files/testfile.go",
 			want: &FileDetails{
 				FilePath: "test_files/testfile.go",
-				Imports:  []string{"fmt", "net/http"}, // Update this to match the imports in testfile.go
+				Imports:  []string{"fmt", "net/http"},
 				Structs: map[string][]string{
-					"MyStruct": {"Field1 int", "Field2 string"}, // Update this to match the structs in testfile.go
+					"MyStruct": {"Field1 int", "Field2 string"},
 				},
 				Funcs: []string{
-					"MyFunc(param1 int, param2 string) returns (result bool)", // Update this to match the functions in testfile.go
-					"main()",
+					"MyFunc(param1 int, param2 string) returns (result bool)",
+					"mainTest()", // Update this to match the function in testfile.go
 				},
+			},
+		},
+		{
+			name:     "Test with a Go file that has no imports",
+			filePath: "test_files/no_imports.go",
+			want: &FileDetails{
+				FilePath: "test_files/no_imports.go",
+				Imports:  []string{}, // This file has no imports
+				Structs:  map[string][]string{},
+				Funcs:    []string{"mainNoImports()"}, // This file has a mainNoImports function
+			},
+		},
+		{
+			name:     "Test with a Go file that has no structs",
+			filePath: "test_files/no_structs.go",
+			want: &FileDetails{
+				FilePath: "test_files/no_structs.go",
+				Imports:  []string{"fmt"},
+				Structs:  map[string][]string{},
+				Funcs:    []string{"mainNoStructs()"}, // Update this to match the function in no_structs.go
+			},
+		},
+		{
+			name:     "Test with a Go file that has no functions",
+			filePath: "test_files/no_funcs.go",
+			want: &FileDetails{
+				FilePath: "test_files/no_funcs.go",
+				Imports:  []string{}, // This file has no imports
+				Structs: map[string][]string{
+					"MyStructNoFuncs": {"Field1 int", "Field2 string"}, // This file declares MyStructNoFuncs
+				},
+				Funcs: []string{}, // This file has no functions
 			},
 		},
 	}
@@ -222,6 +353,7 @@ func TestInspectFile(t *testing.T) {
 			// Check that the returned FileDetails struct matches what we expect
 			if !reflect.DeepEqual(got, testCase.want) {
 				t.Errorf("inspectFile() = %v, want %v", got, testCase.want)
+				t.Logf("got = %#v, want = %#v", got, testCase.want) // Additional logging
 			}
 		})
 	}
