@@ -5,8 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/modfile"
 )
@@ -26,6 +26,13 @@ func init() {
 	detectCmd.Flags().BoolVar(&showAllDeps, "all-deps", false, "Show all dependencies")
 }
 
+type dependency struct {
+	Name     string
+	Version  string
+	Indirect bool
+}
+
+// Update detectRun function
 func detectRun(cmd *cobra.Command, args []string) {
 	path := args[0]
 
@@ -42,7 +49,6 @@ func detectRun(cmd *cobra.Command, args []string) {
 	for {
 		goModPath := filepath.Join(path, "go.mod")
 		if _, err := os.Stat(goModPath); err == nil {
-			fmt.Printf("'%s' is a Go project.\n", path)
 			modulePath, dependencies, err := readGoModFile(goModPath)
 			if err != nil {
 				fmt.Printf("Error reading go.mod file: %v\n", err)
@@ -62,64 +68,37 @@ func detectRun(cmd *cobra.Command, args []string) {
 	fmt.Printf("'%s' is not a Go project. No go.mod file found.\n", args[0])
 }
 
-type dependency struct {
-	Name     string
-	Version  string
-	Indirect bool
-}
-
+// Update printProjectDetails function
 func printProjectDetails(projectPath, modulePath string, dependencies []dependency) {
-	fmt.Println("Project Details:")
-	projectName := filepath.Base(projectPath)
-	fmt.Printf("  Project Name: %s\n", projectName)
-	fmt.Printf("  Module Path: %s\n", modulePath)
+	// Create a new table
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
 
-	// Separate dependencies into direct and indirect
-	var directDeps, indirectDeps []dependency
-	for _, dep := range dependencies {
-		if dep.Indirect {
-			indirectDeps = append(indirectDeps, dep)
-		} else {
-			directDeps = append(directDeps, dep)
-		}
+	// Set style to StyleColoredBlackOnGreenWhite
+	t.SetStyle(table.StyleColoredBlackOnGreenWhite)
+
+	// Print project information in the header
+	t.AppendHeader(table.Row{"  Project Name:", filepath.Base(projectPath)})
+	t.AppendHeader(table.Row{"  Module Path:", modulePath})
+	t.AppendHeader(table.Row{"  Type:", "Go project"})
+
+	// Set style back to StyleColoredGreenWhiteOnBlack for dependencies section
+	t.SetStyle(table.StyleColoredGreenWhiteOnBlack)
+
+	// Set column headers for dependencies
+	t.AppendSeparator()
+	t.AppendHeader(table.Row{"#", "Dependency", "Version", "Indirect"})
+
+	// Populate the table with data
+	for i, dep := range dependencies {
+		t.AppendRow([]interface{}{i + 1, dep.Name, dep.Version, dep.Indirect})
 	}
 
-	// Sort dependencies (direct first, then indirect)
-	sortDependencies(directDeps)
-	sortDependencies(indirectDeps)
-
-	if len(dependencies) > 0 {
-		fmt.Println("  Dependencies:")
-		// Print direct dependencies first
-		printDependencies(directDeps, false)
-		// Print indirect dependencies next
-		printDependencies(indirectDeps, true)
-	} else {
-		fmt.Println("  No dependencies found.")
-	}
-}
-
-func sortDependencies(dependencies []dependency) {
-	sort.Slice(dependencies, func(i, j int) bool {
-		return dependencies[i].Name < dependencies[j].Name
-	})
-}
-
-func printDependencies(dependencies []dependency, indirect bool) {
-	for _, dep := range dependencies {
-		if showAllDeps || (!dep.Indirect && !showAllDeps && !indirect) {
-			fmt.Printf("    %s, Version: %s", dep.Name, dep.Version)
-			if dep.Indirect {
-				fmt.Print(" // indirect")
-			}
-			fmt.Println()
-		}
-	}
+	// Render the table
+	t.Render()
 }
 
 func readGoModFile(goModPath string) (string, []dependency, error) {
-	fmt.Printf("Reading go.mod file: %s\n", goModPath)
-
 	file, err := os.Open(goModPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("error opening go.mod file: %v", err)
