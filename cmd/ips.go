@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -40,7 +40,7 @@ to quickly create a Cobra application.`,
 		}
 		defer resp.Body.Close()
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			fmt.Println("Error reading response body:", err)
 			return
@@ -72,7 +72,7 @@ func init() {
 }
 
 func saveIPRangesToSQLite(ipRanges []string) {
-	db, err := sql.Open("sqlite3", "./ip_ranges.db")
+	db, err := sql.Open("sqlite3", "./data/ips.db")
 	if err != nil {
 		fmt.Println("Error opening SQLite database:", err)
 		return
