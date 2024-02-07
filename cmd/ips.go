@@ -8,19 +8,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 
+	"github.com/jonesrussell/gosymex/metaresponse"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
 
-type MetaResponse struct {
-	Actions []string `json:"actions"`
-}
-
-type IPRange struct {
-	Range string
-}
+const fileName = "sqlite.db"
 
 // ipsCmd represents the ips command
 var ipsCmd = &cobra.Command{
@@ -46,14 +43,24 @@ to quickly create a Cobra application.`,
 			return
 		}
 
-		var meta MetaResponse
+		var meta metaresponse.Ipv4cidr
 		if err := json.Unmarshal(body, &meta); err != nil {
 			fmt.Println("Error unmarshalling JSON:", err)
 			return
 		}
 
-		// Save IP ranges to SQLite
-		saveIPRangesToSQLite(meta.Actions)
+		os.Remove(fileName)
+
+		db, err := sql.Open("sqlite3", fileName)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		websiteRepository := metaresponse.NewSQLiteRepository(db)
+
+		if err := websiteRepository.Migrate(); err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
@@ -69,45 +76,4 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// ipsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-}
-
-func saveIPRangesToSQLite(ipRanges []string) {
-	db, err := sql.Open("sqlite3", "./data/ips.db")
-	if err != nil {
-		fmt.Println("Error opening SQLite database:", err)
-		return
-	}
-	defer db.Close()
-
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS ip_ranges (range TEXT)`)
-	if err != nil {
-		fmt.Println("Error creating table:", err)
-		return
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		fmt.Println("Error starting transaction:", err)
-		return
-	}
-
-	stmt, err := tx.Prepare("INSERT INTO ip_ranges(range) VALUES(?)")
-	if err != nil {
-		fmt.Println("Error preparing statement:", err)
-		return
-	}
-
-	for _, ipRange := range ipRanges {
-		if _, err := stmt.Exec(ipRange); err != nil {
-			fmt.Println("Error executing statement:", err)
-			return
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		fmt.Println("Error committing transaction:", err)
-		return
-	}
-
-	fmt.Println("IP ranges saved successfully.")
 }
