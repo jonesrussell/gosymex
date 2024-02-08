@@ -26,7 +26,7 @@ func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
 
 func (r *SQLiteRepository) Migrate() error {
 	query := `
-	CREATE TABLE IF NOT EXISTS ipv4cidr (
+	CREATE TABLE IF NOT EXISTS ranges (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		cidr TEXT NOT NULL
 	);
@@ -36,8 +36,8 @@ func (r *SQLiteRepository) Migrate() error {
 	return err
 }
 
-func (r *SQLiteRepository) Create(website Ipv4cidr) (*Ipv4cidr, error) {
-	res, err := r.db.Exec("INSERT INTO websites(cidr) values(?)", website.cidr)
+func (r *SQLiteRepository) Create(iprange Ipv4cidr) (*Ipv4cidr, error) {
+	_, err := r.db.Exec("INSERT INTO ranges(cidr) values(?)", iprange.CIDR)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) {
@@ -48,17 +48,11 @@ func (r *SQLiteRepository) Create(website Ipv4cidr) (*Ipv4cidr, error) {
 		return nil, err
 	}
 
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-	website.ID = id
-
-	return &website, nil
+	return &iprange, nil
 }
 
 func (r *SQLiteRepository) All() ([]Ipv4cidr, error) {
-	rows, err := r.db.Query("SELECT * FROM websites")
+	rows, err := r.db.Query("SELECT * FROM ranges")
 	if err != nil {
 		return nil, err
 	}
@@ -66,33 +60,33 @@ func (r *SQLiteRepository) All() ([]Ipv4cidr, error) {
 
 	var all []Ipv4cidr
 	for rows.Next() {
-		var website Ipv4cidr
-		if err := rows.Scan(&website.cidr); err != nil {
+		var iprange Ipv4cidr
+		if err := rows.Scan(&iprange.CIDR); err != nil {
 			return nil, err
 		}
-		all = append(all, website)
+		all = append(all, iprange)
 	}
 	return all, nil
 }
 
 func (r *SQLiteRepository) GetByName(name string) (*Ipv4cidr, error) {
-	row := r.db.QueryRow("SELECT * FROM websites WHERE name = ?", name)
+	row := r.db.QueryRow("SELECT * FROM ranges WHERE name = ?", name)
 
-	var website Ipv4cidr
-	if err := row.Scan(&website.cidr); err != nil {
+	var ranges Ipv4cidr
+	if err := row.Scan(&ranges.CIDR); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotExists
 		}
 		return nil, err
 	}
-	return &website, nil
+	return &ranges, nil
 }
 
 func (r *SQLiteRepository) Update(id int64, updated Ipv4cidr) (*Ipv4cidr, error) {
 	if id == 0 {
 		return nil, errors.New("invalid updated ID")
 	}
-	res, err := r.db.Exec("UPDATE websites SET cidr = ? WHERE id = ?", updated.cidr, id)
+	res, err := r.db.Exec("UPDATE ranges SET cidr = ? WHERE id = ?", updated.CIDR, id)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +104,7 @@ func (r *SQLiteRepository) Update(id int64, updated Ipv4cidr) (*Ipv4cidr, error)
 }
 
 func (r *SQLiteRepository) Delete(id int64) error {
-	res, err := r.db.Exec("DELETE FROM websites WHERE id = ?", id)
+	res, err := r.db.Exec("DELETE FROM ranges WHERE id = ?", id)
 	if err != nil {
 		return err
 	}

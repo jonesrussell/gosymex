@@ -1,5 +1,5 @@
 /*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
+Copyright © 2024 Russell Jones
 */
 package cmd
 
@@ -10,14 +10,14 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
+	"regexp"
 
 	"github.com/jonesrussell/gosymex/metaresponse"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
 
-const fileName = "sqlite.db"
+const fileName = "data/actions.db"
 
 // ipsCmd represents the ips command
 var ipsCmd = &cobra.Command{
@@ -43,24 +43,28 @@ to quickly create a Cobra application.`,
 			return
 		}
 
-		var meta metaresponse.Ipv4cidr
+		var meta metaresponse.Response
 		if err := json.Unmarshal(body, &meta); err != nil {
 			fmt.Println("Error unmarshalling JSON:", err)
 			return
 		}
 
-		os.Remove(fileName)
+		validRanges := GetValidIPv4Ranges(meta.Actions)
+		fmt.Println("Valid IP ranges:", validRanges)
 
 		db, err := sql.Open("sqlite3", fileName)
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer db.Close()
 
-		websiteRepository := metaresponse.NewSQLiteRepository(db)
+		ipRepository := metaresponse.NewSQLiteRepository(db)
 
-		if err := websiteRepository.Migrate(); err != nil {
+		if err := ipRepository.Migrate(); err != nil {
 			log.Fatal(err)
 		}
+
+		InsertValidIPv4Ranges(ipRepository, validRanges)
 	},
 }
 
@@ -76,4 +80,30 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// ipsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+func GetValidIPv4Ranges(ipRanges []string) []string {
+	// Compile a regex pattern for IP ranges
+	ipRangePattern := `^(?:\d{1,3}\.){3}\d{1,3}(?:/\d+)?$`
+	re := regexp.MustCompile(ipRangePattern)
+
+	// Collect valid IP ranges
+	var validRanges []string
+	for _, ipRange := range ipRanges {
+		if re.MatchString(ipRange) {
+			validRanges = append(validRanges, ipRange)
+		}
+	}
+
+	return validRanges
+}
+
+func InsertValidIPv4Ranges(repo *metaresponse.SQLiteRepository, validRanges []string) {
+	// Loop through the valid IP ranges and insert them into the database
+	for _, ipRange := range validRanges {
+		_, err := repo.Create(metaresponse.Ipv4cidr{CIDR: ipRange})
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
