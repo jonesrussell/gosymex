@@ -5,7 +5,15 @@
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/go:1-1.21-bullseye",
 	"features": {
-		"ghcr.io/devcontainers/features/common-utils:2": {}
+		"ghcr.io/devcontainers/features/common-utils:2": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		//"ghcr.io/devcontainers/features/go:1": {},
+		"ghcr.io/guiyomh/features/golangci-lint:0": {},
+		"ghcr.io/guiyomh/features/gotestsum:0": {},
+		//"ghcr.io/jsburckhardt/devcontainer-features/gitleaks:1": {},
+		//"ghcr.io/frntn/devcontainers-features/gitleaks:1": {},
+		"ghcr.io/brokeyourbike/devcontainer-features/mockery-go:0": {},
+		"ghcr.io/marcozac/devcontainer-features/gofumpt:1": {}
 	}
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
