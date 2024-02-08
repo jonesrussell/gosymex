@@ -70,16 +70,6 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(ipsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// ipsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// ipsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 func GetValidIPv4Ranges(ipRanges []string) []string {
@@ -98,10 +88,10 @@ func GetValidIPv4Ranges(ipRanges []string) []string {
 	return validRanges
 }
 
-func InsertValidIPv4Ranges(repo *metaresponse.SQLiteRepository, validRanges []string) {
+func InsertValidIPv4Ranges(db *metaresponse.SQLiteRepository, validRanges []string) {
 	// Loop through the valid IP ranges and insert them into the database
 	for _, ipRange := range validRanges {
-		_, err := repo.Create(metaresponse.Ipv4cidr{CIDR: ipRange})
+		_, err := db.Create(metaresponse.Ipv4cidr{CIDR: ipRange})
 		if err != nil {
 			log.Fatal(err)
 		}

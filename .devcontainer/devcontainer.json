@@ -14,6 +14,13 @@
 		//"ghcr.io/frntn/devcontainers-features/gitleaks:1": {},
 		"ghcr.io/brokeyourbike/devcontainer-features/mockery-go:0": {},
 		"ghcr.io/marcozac/devcontainer-features/gofumpt:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-vscode.makefile-tools"
+			]
+		}
 	}
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
