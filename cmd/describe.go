@@ -64,33 +64,39 @@ func handleTypeSpec(x *ast.TypeSpec, details *FileDetails) {
 
 // handleFuncDecl handles a function declaration AST node.
 func handleFuncDecl(x *ast.FuncDecl, details *FileDetails) {
-	funcSig := fmt.Sprintf("%s(", x.Name.Name)
+	funcSig := ""
+	if x.Recv != nil { // Check if the function has a receiver
+			// Assuming the receiver is a single field, extract the type
+			receiverType := types.ExprString(x.Recv.List[0].Type)
+			funcSig += fmt.Sprintf("(%s).", receiverType)
+	}
+	funcSig += fmt.Sprintf("%s(", x.Name.Name)
 	if x.Type.Params != nil {
-		for i, p := range x.Type.Params.List {
-			if i > 0 {
-				funcSig += ", "
+			for i, p := range x.Type.Params.List {
+					if i >  0 {
+							funcSig += ", "
+					}
+					for j := range p.Names {
+							if j >  0 {
+									funcSig += ", "
+							}
+							funcSig += fmt.Sprintf("%s %s", p.Names[j], types.ExprString(p.Type))
+					}
 			}
-			for j := range p.Names {
-				if j > 0 {
-					funcSig += ", "
-				}
-				funcSig += fmt.Sprintf("%s %s", p.Names[j], types.ExprString(p.Type))
-			}
-		}
 	}
 	funcSig += ")"
 	if x.Type.Results != nil {
-		funcSig += " returns ("
-		for i, r := range x.Type.Results.List {
-			if i > 0 {
-				funcSig += ", "
+			funcSig += " returns ("
+			for i, r := range x.Type.Results.List {
+					if i >  0 {
+							funcSig += ", "
+					}
+					if len(r.Names) >  0 {
+							funcSig += fmt.Sprintf("%s ", r.Names[0])
+					}
+					funcSig += types.ExprString(r.Type)
 			}
-			if len(r.Names) > 0 {
-				funcSig += fmt.Sprintf("%s ", r.Names[0])
-			}
-			funcSig += types.ExprString(r.Type)
-		}
-		funcSig += ")"
+			funcSig += ")"
 	}
 	details.Funcs = append(details.Funcs, funcSig)
 }
@@ -100,6 +106,7 @@ func inspectFile(filePath string, node *ast.File) *FileDetails {
 	details := &FileDetails{
 		FilePath: filePath,
 		Imports:  []string{},
+		Interfaces: make(map[string][]string),
 		Structs:  make(map[string][]string),
 		Funcs:    []string{},
 	}
