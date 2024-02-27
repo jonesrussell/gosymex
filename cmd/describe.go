@@ -131,28 +131,33 @@ func handleFuncDecl(x *ast.FuncDecl, details *FileDetails) {
 // inspectFile inspects the AST of a Go file and returns a FileDetails struct.
 func inspectFile(filePath string, node *ast.File) *FileDetails {
 	details := &FileDetails{
-		FilePath: filePath,
-		Imports:  []string{},
-		Interfaces: make(map[string][]string),
-		Structs:  make(map[string][]string),
-		Funcs:    []string{},
+			FilePath: filePath,
+			Imports:  []string{},
+			Interfaces: make(map[string][]string),
+			Structs:  make(map[string][]string),
+			Funcs:    []string{},
 	}
 
 	ast.Inspect(node, func(n ast.Node) bool {
-		switch x := n.(type) {
-		case *ast.ImportSpec:
-			handleImportSpec(x, details)
-		case *ast.TypeSpec:
-			if _, ok := x.Type.(*ast.InterfaceType); ok {
-				handleInterfaceSpec(x, details)
-			} else {
-				handleTypeSpec(x, details)
+			switch x := n.(type) {
+			case *ast.ImportSpec:
+					handleImportSpec(x, details)
+			case *ast.TypeSpec:
+					if _, ok := x.Type.(*ast.InterfaceType); ok {
+							handleInterfaceSpec(x, details)
+					} else {
+							handleTypeSpec(x, details)
+					}
+			case *ast.FuncDecl:
+					handleFuncDecl(x, details)
 			}
-		case *ast.FuncDecl:
-			handleFuncDecl(x, details)
-		}
-		return true
+			return true
 	})
+
+	// Check if Interfaces is empty and set it to nil if so
+	if len(details.Interfaces) ==  0 {
+			details.Interfaces = nil
+	}
 
 	return details
 }
