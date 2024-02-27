@@ -12,6 +12,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var describeCmd = &cobra.Command{
+	Use:   "describe",
+	Short: "Describe a Go file",
+	Long:  `This command describes a Go file and prints out its details.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) != 1 {
+			fmt.Println("Usage: gosymex describe <filepath>")
+			return
+		}
+
+		filePath := args[0]
+		node, err := parseFile(filePath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		details := inspectFile(filePath, node)
+		jsonDetails, _ := json.MarshalIndent(details, "", "  ")
+		fmt.Println(string(jsonDetails))
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(describeCmd)
+}
+
 type FileDetails struct {
 	FilePath   string
 	Imports    []string
@@ -128,31 +155,4 @@ func inspectFile(filePath string, node *ast.File) *FileDetails {
 	})
 
 	return details
-}
-
-var describeCmd = &cobra.Command{
-	Use:   "describe",
-	Short: "Describe a Go file",
-	Long:  `This command describes a Go file and prints out its details.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			fmt.Println("Usage: gosymex describe <filepath>")
-			return
-		}
-
-		filePath := args[0]
-		node, err := parseFile(filePath)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		details := inspectFile(filePath, node)
-		jsonDetails, _ := json.MarshalIndent(details, "", "  ")
-		fmt.Println(string(jsonDetails))
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(describeCmd)
 }
