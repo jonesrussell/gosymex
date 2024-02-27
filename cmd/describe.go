@@ -53,8 +53,39 @@ func parseFile(filePath string) (*ast.File, error) {
 	return parser.ParseFile(fset, filePath, nil, parser.ParseComments)
 }
 
+// inspectFile inspects the AST of a Go file and returns a FileDetails struct.
+func inspectFile(filePath string, node *ast.File) *FileDetails {
+	details := &FileDetails{
+		FilePath:   filePath,
+		Imports:    []string{},
+		Structs:    make(map[string][]string),
+		Interfaces: nil,
+		Funcs:      []string{},
+	}
+
+	handlers := map[string]func(ast.Node, *FileDetails){
+		"*ast.ImportSpec": handleImportSpec,
+		"*ast.TypeSpec":   handleTypeSpec,
+		"*ast.FuncDecl":   handleFuncDecl,
+	}
+
+	ast.Inspect(node, func(n ast.Node) bool {
+		handler, ok := handlers[fmt.Sprintf("%T", n)]
+		if ok {
+			handler(n, details)
+		}
+		return true
+	})
+
+	return details
+}
+
 // handleImportSpec handles an import spec AST node.
-func handleImportSpec(x *ast.ImportSpec, details *FileDetails) {
+func handleImportSpec(n ast.Node, details *FileDetails) {
+	x, ok := n.(*ast.ImportSpec)
+	if !ok {
+		return // or handle the error as you see fit
+	}
 	importPath := strings.Trim(x.Path.Value, "\"")
 	details.Imports = append(details.Imports, importPath)
 }
@@ -74,8 +105,12 @@ func handleInterfaceSpec(x *ast.TypeSpec, details *FileDetails) {
 	}
 }
 
-// handleTypeSpec handles a type spec AST node.
-func handleTypeSpec(x *ast.TypeSpec, details *FileDetails) {
+func handleTypeSpec(n ast.Node, details *FileDetails) {
+	x, ok := n.(*ast.TypeSpec)
+	if !ok {
+		return // or handle the error as you see fit
+	}
+	// The rest of your function implementation remains the same
 	switch t := x.Type.(type) {
 	case *ast.StructType:
 		// Add an entry for the struct to the Structs field
@@ -90,74 +125,45 @@ func handleTypeSpec(x *ast.TypeSpec, details *FileDetails) {
 }
 
 // handleFuncDecl handles a function declaration AST node.
-func handleFuncDecl(x *ast.FuncDecl, details *FileDetails) {
+func handleFuncDecl(n ast.Node, details *FileDetails) {
+	x, ok := n.(*ast.FuncDecl)
+	if !ok {
+		return // or handle the error as you see fit
+	}
+	// The rest of your function implementation remains the same
 	funcSig := ""
 	if x.Recv != nil { // Check if the function has a receiver
-			// Assuming the receiver is a single field, extract the type
-			receiverType := types.ExprString(x.Recv.List[0].Type)
-			funcSig += fmt.Sprintf("(%s).", receiverType)
+		// Assuming the receiver is a single field, extract the type
+		receiverType := types.ExprString(x.Recv.List[0].Type)
+		funcSig += fmt.Sprintf("(%s).", receiverType)
 	}
 	funcSig += fmt.Sprintf("%s(", x.Name.Name)
 	if x.Type.Params != nil {
-			for i, p := range x.Type.Params.List {
-					if i >  0 {
-							funcSig += ", "
-					}
-					for j := range p.Names {
-							if j >  0 {
-									funcSig += ", "
-							}
-							funcSig += fmt.Sprintf("%s %s", p.Names[j], types.ExprString(p.Type))
-					}
+		for i, p := range x.Type.Params.List {
+			if i > 0 {
+				funcSig += ", "
 			}
+			for j := range p.Names {
+				if j > 0 {
+					funcSig += ", "
+				}
+				funcSig += fmt.Sprintf("%s %s", p.Names[j], types.ExprString(p.Type))
+			}
+		}
 	}
 	funcSig += ")"
 	if x.Type.Results != nil {
-			funcSig += " returns ("
-			for i, r := range x.Type.Results.List {
-					if i >  0 {
-							funcSig += ", "
-					}
-					if len(r.Names) >  0 {
-							funcSig += fmt.Sprintf("%s ", r.Names[0])
-					}
-					funcSig += types.ExprString(r.Type)
+		funcSig += " returns ("
+		for i, r := range x.Type.Results.List {
+			if i > 0 {
+				funcSig += ", "
 			}
-			funcSig += ")"
+			if len(r.Names) > 0 {
+				funcSig += fmt.Sprintf("%s ", r.Names[0])
+			}
+			funcSig += types.ExprString(r.Type)
+		}
+		funcSig += ")"
 	}
 	details.Funcs = append(details.Funcs, funcSig)
-}
-
-// inspectFile inspects the AST of a Go file and returns a FileDetails struct.
-func inspectFile(filePath string, node *ast.File) *FileDetails {
-	details := &FileDetails{
-			FilePath: filePath,
-			Imports:  []string{},
-			Interfaces: make(map[string][]string),
-			Structs:  make(map[string][]string),
-			Funcs:    []string{},
-	}
-
-	ast.Inspect(node, func(n ast.Node) bool {
-			switch x := n.(type) {
-			case *ast.ImportSpec:
-					handleImportSpec(x, details)
-			case *ast.TypeSpec:
-					if _, ok := x.Type.(*ast.InterfaceType); ok {
-							handleInterfaceSpec(x, details)
-					} else {
-							handleTypeSpec(x, details)
-					}
-			case *ast.FuncDecl:
-					handleFuncDecl(x, details)
-			}
-			return true
-	})
-
-	// Check if Interfaces is empty and set it to nil if so
-	if len(details.Interfaces) ==  0 {
-			details.Interfaces = nil
-	}
-
-	return details
 }
