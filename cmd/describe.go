@@ -148,8 +148,10 @@ func handleTypeSpec(n ast.Node, details *FileDetails) {
 
 		// Then add each field to the entry
 		for _, f := range t.Fields.List {
-			field := fmt.Sprintf("%s %s", f.Names[0].Name, types.ExprString(f.Type))
-			details.Structs[x.Name.Name] = append(details.Structs[x.Name.Name], field)
+			if len(f.Names) > 0 { // Check if the Names slice is not empty
+				field := fmt.Sprintf("%s %s", f.Names[0].Name, types.ExprString(f.Type))
+				details.Structs[x.Name.Name] = append(details.Structs[x.Name.Name], field)
+			}
 		}
 	}
 }
