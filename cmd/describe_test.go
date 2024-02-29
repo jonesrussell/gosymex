@@ -1,10 +1,70 @@
 package cmd
 
 import (
+	"bytes"
 	"go/ast"
+	"io"
+	"os"
 	"reflect"
 	"testing"
 )
+
+func Test_describeFile(t *testing.T) {
+	type args struct {
+		filePath string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		wantOut string
+	}{
+		{
+			name: "Valid file path",
+			args: args{
+				filePath: "./test_files/testfile.go",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Invalid file path",
+			args: args{
+				filePath: "./test_files/testfile.txt",
+			},
+			wantErr: true,
+		},
+		// Add more test cases as needed.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a buffer to hold the output
+			var buf bytes.Buffer
+
+			// Save the original stdout
+			old := os.Stdout
+
+			// Create a temporary file and set it as stdout
+			temp, _ := os.CreateTemp("", "")
+			os.Stdout = temp
+
+			// Call the function
+			describeFile(tt.args.filePath)
+
+			// Copy the contents of the temporary file into our buffer
+			temp.Seek(0, 0) // Go to the start of the file
+			io.Copy(&buf, temp)
+
+			// Restore the original stdout
+			os.Stdout = old
+
+			// Check the output
+			got := buf.String()
+			if (got != tt.wantOut && !tt.wantErr) || (got == "" && tt.wantErr) {
+				t.Errorf("describeFile() output = %v, wantErr %v", got, tt.wantErr)
+			}
+		})
+	}
+}
 
 func TestParseFile(t *testing.T) {
 	// Define a table of test cases

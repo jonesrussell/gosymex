@@ -7,6 +7,8 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -18,25 +20,53 @@ var describeCmd = &cobra.Command{
 	Long:  `This command describes a Go file and prints out its details.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			fmt.Println("Usage: gosymex describe <filepath>")
+			fmt.Println("Usage: gosymex describe <filepath or directory>")
 			return
 		}
 
-		filePath := args[0]
-		node, err := parseFile(filePath)
+		path := args[0]
+		fileInfo, err := os.Stat(path)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("Error accessing path:", err)
 			return
 		}
 
-		details := inspectFile(filePath, node)
-		jsonDetails, _ := json.MarshalIndent(details, "", "  ")
-		fmt.Println(string(jsonDetails))
+		if fileInfo.IsDir() {
+			// It's a directory, walk through it to find Go files
+			err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if !info.IsDir() && strings.HasSuffix(filePath, ".go") {
+					// Process the Go file
+					describeFile(filePath)
+				}
+				return nil
+			})
+			if err != nil {
+				fmt.Println("Error walking the directory:", err)
+			}
+		} else {
+			// It's a file, process it directly
+			describeFile(path)
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(describeCmd)
+}
+
+func describeFile(filePath string) {
+	node, err := parseFile(filePath)
+	if err != nil {
+		fmt.Println("Error parsing file:", err)
+		return
+	}
+
+	details := inspectFile(filePath, node)
+	jsonDetails, _ := json.MarshalIndent(details, "", "  ")
+	fmt.Println(string(jsonDetails))
 }
 
 type FileDetails struct {
