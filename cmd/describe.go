@@ -31,13 +31,16 @@ var describeCmd = &cobra.Command{
 			return
 		}
 
+		includeTests, _ := cmd.Flags().GetBool("include-tests")
+		includeMocks, _ := cmd.Flags().GetBool("include-mocks")
+
 		if fileInfo.IsDir() {
 			// It's a directory, walk through it to find Go files
 			err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
-				if !info.IsDir() && strings.HasSuffix(filePath, ".go") {
+				if !info.IsDir() && strings.HasSuffix(filePath, ".go") && (includeTests || !strings.HasSuffix(filePath, "_test.go")) && (includeMocks || !strings.HasSuffix(filePath, "_mock.go")) {
 					// Process the Go file
 					describeFile(filePath)
 				}
@@ -54,6 +57,8 @@ var describeCmd = &cobra.Command{
 }
 
 func init() {
+	describeCmd.Flags().BoolP("include-tests", "t", false, "Include test files in the recursive describe")
+	describeCmd.Flags().BoolP("include-mocks", "m", false, "Include mock files in the recursive describe")
 	rootCmd.AddCommand(describeCmd)
 }
 
