@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -69,16 +70,28 @@ func isGoFile(filePath string, info os.FileInfo, includeTests bool, includeMocks
 	return !info.IsDir() && strings.HasSuffix(filePath, ".go") && (includeTests || !strings.HasSuffix(filePath, "_test.go")) && (includeMocks || !strings.HasSuffix(filePath, "_mock.go"))
 }
 
-func describeFile(filePath string) {
-	node, err := parseFile(filePath)
-	if err != nil {
-		fmt.Println("Error parsing file:", err)
-		return
+func describeFile(filePath string) (string, error) {
+	// Check if the file is a Go file
+	if filepath.Ext(filePath) != ".go" {
+		// If not, return a JSON object with an error field
+		return `{"error":"not a Go file"}`, errors.New("not a Go file")
 	}
 
+	// Parse the Go file at the given path
+	node, err := parseFile(filePath)
+	if err != nil {
+		// If there's an error, return an empty string and the error
+		return "", fmt.Errorf("Error parsing file: %v", err)
+	}
+
+	// Inspect the AST of the Go file and get its details
 	details := inspectFile(filePath, node)
+
+	// Marshal the details into a JSON string
 	jsonDetails, _ := json.MarshalIndent(details, "", "  ")
-	fmt.Println(string(jsonDetails))
+
+	// Return the JSON string and nil error
+	return string(jsonDetails), nil
 }
 
 type FileDetails struct {

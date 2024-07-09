@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"go/ast"
 	"io"
 	"os"
@@ -14,6 +16,7 @@ func Test_describeFile(t *testing.T) {
 	type args struct {
 		filePath string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -21,39 +24,47 @@ func Test_describeFile(t *testing.T) {
 		wantOut string
 	}{
 		{
-			name: "Valid file path",
+			name: "Test with Go file having no functions",
+			args: args{
+				filePath: "./test_files/no_funcs.go",
+			},
+			wantErr: false,
+			wantOut: `{"FilePath":"./test_files/no_funcs.go","Imports":[],"Structs":{"MyStructNoFuncs":["Field1 int","Field2 string"]},"Interfaces":null,"Funcs":[]}`,
+		},
+		{
+			name: "Test with Go file having no imports",
+			args: args{
+				filePath: "./test_files/no_imports.go",
+			},
+			wantErr: false,
+			wantOut: `{"FilePath":"./test_files/no_imports.go","Imports":[],"Structs":{},"Interfaces":null,"Funcs":["mainNoImports()"]}`,
+		},
+		{
+			name: "Test with Go file having no structs",
+			args: args{
+				filePath: "./test_files/no_structs.go",
+			},
+			wantErr: false,
+			wantOut: `{"FilePath":"./test_files/no_structs.go","Imports":["fmt"],"Structs":{},"Interfaces":null,"Funcs":["mainNoStructs()"]}`,
+		},
+		{
+			name: "Test with valid Go file",
 			args: args{
 				filePath: "./test_files/testfile.go",
 			},
 			wantErr: false,
-			wantOut: `{
-				"FilePath": "./test_files/testfile.go",
-				"Imports": [
-					"fmt",
-					"net/http"
-				],
-				"Structs": {
-					"MyStruct": [
-						"Field1 int",
-						"Field2 string"
-					]
-				},
-				"Interfaces": null,
-				"Funcs": [
-					"MyFunc(param1 int, param2 string) returns (result bool)",
-					"mainTest()"
-				]
-			}`,
+			wantOut: `{"FilePath":"./test_files/testfile.go","Imports":["fmt","net/http"],"Structs":{"MyStruct":["Field1 int","Field2 string"]},"Interfaces":null,"Funcs":["MyFunc(param1 int, param2 string) returns (result bool)","mainTest()"]}`,
 		},
 		{
-			name: "Invalid file path",
+			name: "Test with non-Go file",
 			args: args{
 				filePath: "./test_files/testfile.txt",
 			},
 			wantErr: true,
+			wantOut: `{"error":"not a Go file"}`,
 		},
-		// Add more test cases as needed.
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a buffer to hold the output
@@ -63,11 +74,16 @@ func Test_describeFile(t *testing.T) {
 			old := os.Stdout
 
 			// Create a temporary file and set it as stdout
-			temp, _ := os.CreateTemp("", "")
+			temp, err := os.CreateTemp("", "")
+			if err != nil {
+				t.Fatalf("Failed to create temp file: %v", err)
+			}
+			defer os.Remove(temp.Name()) // Ensure the temp file is removed after the test
 			os.Stdout = temp
 
 			// Call the function
-			describeFile(tt.args.filePath)
+			str, err := describeFile(tt.args.filePath)
+			fmt.Println(str)
 
 			// Copy the contents of the temporary file into our buffer
 			temp.Seek(0, 0) // Go to the start of the file
@@ -78,11 +94,22 @@ func Test_describeFile(t *testing.T) {
 
 			// Check the output
 			got := strings.TrimSpace(buf.String())
-			wantOut := strings.TrimSpace(tt.wantOut)
-			if (got != wantOut && !tt.wantErr) || (got == "" && tt.wantErr) {
-				t.Errorf("describeFile() output = %v, wantErr %v", got, tt.wantErr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("describeFile() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
+			var gotObj, wantObj interface{}
+
+			if err := json.Unmarshal([]byte(got), &gotObj); err != nil {
+				t.Errorf("Failed to unmarshal 'got': %v", err)
+			}
+			if err := json.Unmarshal([]byte(tt.wantOut), &wantObj); err != nil {
+				t.Errorf("Failed to unmarshal 'wantOut': %v", err)
+			}
+
+			if !reflect.DeepEqual(gotObj, wantObj) {
+				t.Errorf("describeFile() output = %v, wantOut %v", gotObj, wantObj)
+			}
 		})
 	}
 }
