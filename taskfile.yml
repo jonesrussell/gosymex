@@ -1,10 +1,13 @@
 version: '3'
 
+vars:
+  BIN_NAME: gosymex
+
 tasks:
   build:
     cmds:
-      - go build -v -o bin/gocreate main.go
-    desc: Build the gocreate binary
+      - go build -v -o bin/${BIN_NAME} main.go
+    desc: Build the ${BIN_NAME} binary
 
   test:
     cmds:
@@ -39,7 +42,7 @@ tasks:
 
   docker-build:
     cmds:
-      - docker build -t jonesrussell/gocreate .
+      - docker build -t jonesrussell/${BIN_NAME} .
     desc: Build Docker image
 
   clean:
