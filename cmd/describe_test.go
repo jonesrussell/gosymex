@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -25,6 +26,24 @@ func Test_describeFile(t *testing.T) {
 				filePath: "./test_files/testfile.go",
 			},
 			wantErr: false,
+			wantOut: `{
+				"FilePath": "./test_files/testfile.go",
+				"Imports": [
+					"fmt",
+					"net/http"
+				],
+				"Structs": {
+					"MyStruct": [
+						"Field1 int",
+						"Field2 string"
+					]
+				},
+				"Interfaces": null,
+				"Funcs": [
+					"MyFunc(param1 int, param2 string) returns (result bool)",
+					"mainTest()"
+				]
+			}`,
 		},
 		{
 			name: "Invalid file path",
@@ -58,10 +77,12 @@ func Test_describeFile(t *testing.T) {
 			os.Stdout = old
 
 			// Check the output
-			got := buf.String()
-			if (got != tt.wantOut && !tt.wantErr) || (got == "" && tt.wantErr) {
+			got := strings.TrimSpace(buf.String())
+			wantOut := strings.TrimSpace(tt.wantOut)
+			if (got != wantOut && !tt.wantErr) || (got == "" && tt.wantErr) {
 				t.Errorf("describeFile() output = %v, wantErr %v", got, tt.wantErr)
 			}
+
 		})
 	}
 }

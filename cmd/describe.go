@@ -18,48 +18,55 @@ var describeCmd = &cobra.Command{
 	Use:   "describe",
 	Short: "Describe a Go file",
 	Long:  `This command describes a Go file and prints out its details.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			fmt.Println("Usage: gosymex describe <filepath or directory>")
-			return
-		}
-
-		path := args[0]
-		fileInfo, err := os.Stat(path)
-		if err != nil {
-			fmt.Println("Error accessing path:", err)
-			return
-		}
-
-		includeTests, _ := cmd.Flags().GetBool("include-tests")
-		includeMocks, _ := cmd.Flags().GetBool("include-mocks")
-
-		if fileInfo.IsDir() {
-			// It's a directory, walk through it to find Go files
-			err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				if !info.IsDir() && strings.HasSuffix(filePath, ".go") && (includeTests || !strings.HasSuffix(filePath, "_test.go")) && (includeMocks || !strings.HasSuffix(filePath, "_mock.go")) {
-					// Process the Go file
-					describeFile(filePath)
-				}
-				return nil
-			})
-			if err != nil {
-				fmt.Println("Error walking the directory:", err)
-			}
-		} else {
-			// It's a file, process it directly
-			describeFile(path)
-		}
-	},
+	Run:   runDescribeCmd,
 }
 
 func init() {
 	describeCmd.Flags().BoolP("include-tests", "t", false, "Include test files in the recursive describe")
 	describeCmd.Flags().BoolP("include-mocks", "m", false, "Include mock files in the recursive describe")
 	rootCmd.AddCommand(describeCmd)
+}
+
+func runDescribeCmd(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		fmt.Println("Usage: gosymex describe <filepath or directory>")
+		return
+	}
+
+	path := args[0]
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		fmt.Println("Error accessing path:", err)
+		return
+	}
+
+	includeTests, _ := cmd.Flags().GetBool("include-tests")
+	includeMocks, _ := cmd.Flags().GetBool("include-mocks")
+
+	if fileInfo.IsDir() {
+		processDirectory(path, includeTests, includeMocks)
+	} else {
+		describeFile(path)
+	}
+}
+
+func processDirectory(path string, includeTests bool, includeMocks bool) {
+	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if isGoFile(filePath, info, includeTests, includeMocks) {
+			describeFile(filePath)
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Println("Error walking the directory:", err)
+	}
+}
+
+func isGoFile(filePath string, info os.FileInfo, includeTests bool, includeMocks bool) bool {
+	return !info.IsDir() && strings.HasSuffix(filePath, ".go") && (includeTests || !strings.HasSuffix(filePath, "_test.go")) && (includeMocks || !strings.HasSuffix(filePath, "_mock.go"))
 }
 
 func describeFile(filePath string) {
